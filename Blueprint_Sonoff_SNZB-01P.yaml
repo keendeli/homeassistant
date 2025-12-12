@@ -1,0 +1,78 @@
+blueprint:
+  name: Sonoff SNZB-01P Button (Zigbee2MQTT via MQTT topic)
+  description: >
+    Control actions from a Sonoff SNZB-01P button using Zigbee2MQTT MQTT messages.
+    Listens to the device's /action topic and supports single, double, hold and release.
+  domain: automation
+
+  input:
+    action_topic:
+      name: Button action MQTT topic
+      description: >
+        The MQTT topic that Zigbee2MQTT publishes button actions to.
+        Example: zigbee2mqtt/Bedroom Dean Wireless Switch/action
+      selector:
+        text:
+
+    single_press:
+      name: Single press action
+      description: Action to run when the button is single-pressed.
+      default: []
+      selector:
+        action: {}
+
+    double_press:
+      name: Double press action
+      description: Action to run when the button is double-pressed.
+      default: []
+      selector:
+        action: {}
+
+    hold_press:
+      name: Hold action (button down)
+      description: Action to run when the button is held.
+      default: []
+      selector:
+        action: {}
+
+    hold_release:
+      name: Release action (after holding)
+      description: Action to run when the button is released after a hold.
+      default: []
+      selector:
+        action: {}
+
+mode: single
+
+trigger:
+  - platform: mqtt
+    topic: !input action_topic
+
+variables:
+  command: "{{ trigger.payload | lower }}"
+
+action:
+  - choose:
+      # SINGLE PRESS
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'single' }}"
+        sequence: !input single_press
+
+      # DOUBLE PRESS
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'double' }}"
+        sequence: !input double_press
+
+      # HOLD (button down)
+      - conditions:
+          - condition: template
+            value_template: "{{ command in ['hold', 'long'] }}"
+        sequence: !input hold_press
+
+      # RELEASE (after hold)
+      - conditions:
+          - condition: template
+            value_template: "{{ command in ['release', 'long_release'] }}"
+        sequence: !input hold_release
