@@ -1,43 +1,32 @@
 blueprint:
-  name: Sonoff SNZB-01P Button (Zigbee2MQTT via MQTT topic)
-  description: >
-    Control actions from a Sonoff SNZB-01P button using Zigbee2MQTT MQTT messages.
-    Listens to the device's /action topic and supports single, double, hold and release.
+  name: Zigbee2MQTT - Sonoff SNZB-01P (Press/Double/Hold)
+  description: Perform actions with the Sonoff SNZB-01P Button using Zigbee2MQTT. This blueprint maps single, double, and long press actions to separate configurable sequences.
   domain: automation
-
   input:
-    action_topic:
-      name: Button action MQTT topic
-      description: >
-        The MQTT topic that Zigbee2MQTT publishes button actions to.
-        Example: zigbee2mqtt/Bedroom Dean Wireless Switch/action
+    remote_device:
+      name: Sonoff SNZB-01P Device
+      description: The Sonoff SNZB-01P button device from Zigbee2MQTT.
       selector:
-        text:
-
-    single_press:
-      name: Single press action
-      description: Action to run when the button is single-pressed.
+        device:
+          integration: mqtt
+          manufacturer: SONOFF
+          model: SNZB-01P
+          multiple: false
+    single_press_action:
+      name: Single Press Action
+      description: Action to run on a single press (quick click).
       default: []
       selector:
         action: {}
-
-    double_press:
-      name: Double press action
-      description: Action to run when the button is double-pressed.
+    double_press_action:
+      name: Double Press Action
+      description: Action to run on a double press (two quick clicks).
       default: []
       selector:
         action: {}
-
-    hold_press:
-      name: Hold action (button down)
-      description: Action to run when the button is held.
-      default: []
-      selector:
-        action: {}
-
-    hold_release:
-      name: Release action (after holding)
-      description: Action to run when the button is released after a hold.
+    long_press_action:
+      name: Long Press Action (Hold)
+      description: Action to run on a long press (holding the button down).
       default: []
       selector:
         action: {}
@@ -45,34 +34,42 @@ blueprint:
 mode: single
 
 trigger:
-  - platform: mqtt
-    topic: !input action_topic
+  # Trigger for Single Press (Subtype 'single' corresponds to action: "single" in Z2M payload)
+  - platform: device
+    domain: mqtt
+    device_id: !input 'remote_device'
+    type: action
+    subtype: single
+    id: 'single'
 
-variables:
-  command: "{{ trigger.payload | lower }}"
+  # Trigger for Double Press (Subtype 'double' corresponds to action: "double" in Z2M payload)
+  - platform: device
+    domain: mqtt
+    device_id: !input 'remote_device'
+    type: action
+    subtype: double
+    id: 'double'
+
+  # Trigger for Long Press (Subtype 'long' corresponds to action: "long" in Z2M payload)
+  - platform: device
+    domain: mqtt
+    device_id: !input 'remote_device'
+    type: action
+    subtype: long
+    id: 'long'
 
 action:
+  # Choose the action sequence based on which trigger fired
   - choose:
-      # SINGLE PRESS
       - conditions:
-          - condition: template
-            value_template: "{{ command == 'single' }}"
-        sequence: !input single_press
-
-      # DOUBLE PRESS
+          - condition: trigger
+            id: 'single'
+        sequence: !input 'single_press_action'
       - conditions:
-          - condition: template
-            value_template: "{{ command == 'double' }}"
-        sequence: !input double_press
-
-      # HOLD (button down)
+          - condition: trigger
+            id: 'double'
+        sequence: !input 'double_press_action'
       - conditions:
-          - condition: template
-            value_template: "{{ command in ['hold', 'long'] }}"
-        sequence: !input hold_press
-
-      # RELEASE (after hold)
-      - conditions:
-          - condition: template
-            value_template: "{{ command in ['release', 'long_release'] }}"
-        sequence: !input hold_release
+          - condition: trigger
+            id: 'long'
+        sequence: !input 'long_press_action'
