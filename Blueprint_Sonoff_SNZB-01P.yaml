@@ -1,32 +1,28 @@
 blueprint:
-  name: Zigbee2MQTT - Sonoff SNZB-01P (MQTT Topic Trigger)
-  description: Triggers actions based on the raw MQTT 'action' topic published by the SNZB-01P via Zigbee2MQTT.
+  name: Zigbee2MQTT - Sonoff SNZB-01P (Manual MQTT Topic)
+  description: Triggers actions based on the full JSON payload published by the SNZB-01P via Zigbee2MQTT. Requires the device's base MQTT topic (e.g., 'zigbee2mqtt/my_button_name').
   domain: automation
   input:
-    remote_entity:
-      name: Sonoff SNZB-01P Action Entity
-      description: The entity that publishes the 'action' state (e.g., sensor.your_device_name_action). This is typically created automatically by Z2M/MQTT Discovery.
+    mqtt_base_topic:
+      name: Device MQTT Base Topic
+      description: Enter the full MQTT base topic for your device (e.g., zigbee2mqtt/bedroom_button).
       selector:
-        entity:
-          integration: mqtt
-          domain: sensor
-          # Filter for entities with 'action' in the name/device class, common for buttons
-          multiple: false
+        text: {}
     single_press_action:
       name: Single Press Action
-      description: Action to run when the state is 'single'.
+      description: Action to run when the 'action' is 'single'.
       default: []
       selector:
         action: {}
     double_press_action:
       name: Double Press Action
-      description: Action to run when the state is 'double'.
+      description: Action to run when the 'action' is 'double'.
       default: []
       selector:
         action: {}
     long_press_action:
       name: Long Press Action (Hold)
-      description: Action to run when the state is 'long'.
+      description: Action to run when the 'action' is 'long'.
       default: []
       selector:
         action: {}
@@ -34,13 +30,15 @@ blueprint:
 mode: single
 
 trigger:
-  # Trigger when the state of the action entity changes to 'single', 'double', or 'long'
-  - platform: state
-    entity_id: !input 'remote_entity'
+  # Trigger on any message published to the base topic
+  - platform: mqtt
+    topic: !input 'mqtt_base_topic'
+    id: 'mqtt_trigger'
 
 action:
+  # Extract the 'action' value from the JSON payload (e.g., "single", "double", "long")
   - variables:
-      action_state: "{{ trigger.to_state.state }}"
+      action_state: "{{ trigger.payload_json.action }}"
   - choose:
       # Action: single
       - conditions:
