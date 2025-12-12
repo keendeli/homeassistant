@@ -1,32 +1,32 @@
 blueprint:
-  name: Zigbee2MQTT - Sonoff SNZB-01P (Press/Double/Hold)
-  description: Perform actions with the Sonoff SNZB-01P Button using Zigbee2MQTT. This blueprint maps single, double, and long press actions to separate configurable sequences.
+  name: Zigbee2MQTT - Sonoff SNZB-01P (MQTT Topic Trigger)
+  description: Triggers actions based on the raw MQTT 'action' topic published by the SNZB-01P via Zigbee2MQTT.
   domain: automation
   input:
-    remote_device:
-      name: Sonoff SNZB-01P Device
-      description: The Sonoff SNZB-01P button device from Zigbee2MQTT.
+    remote_entity:
+      name: Sonoff SNZB-01P Action Entity
+      description: The entity that publishes the 'action' state (e.g., sensor.your_device_name_action). This is typically created automatically by Z2M/MQTT Discovery.
       selector:
-        device:
+        entity:
           integration: mqtt
-          manufacturer: SONOFF
-          model: SNZB-01P
+          domain: sensor
+          # Filter for entities with 'action' in the name/device class, common for buttons
           multiple: false
     single_press_action:
       name: Single Press Action
-      description: Action to run on a single press (quick click).
+      description: Action to run when the state is 'single'.
       default: []
       selector:
         action: {}
     double_press_action:
       name: Double Press Action
-      description: Action to run on a double press (two quick clicks).
+      description: Action to run when the state is 'double'.
       default: []
       selector:
         action: {}
     long_press_action:
       name: Long Press Action (Hold)
-      description: Action to run on a long press (holding the button down).
+      description: Action to run when the state is 'long'.
       default: []
       selector:
         action: {}
@@ -34,42 +34,26 @@ blueprint:
 mode: single
 
 trigger:
-  # Trigger for Single Press (Subtype 'single' corresponds to action: "single" in Z2M payload)
-  - platform: device
-    domain: mqtt
-    device_id: !input 'remote_device'
-    type: action
-    subtype: single
-    id: 'single'
-
-  # Trigger for Double Press (Subtype 'double' corresponds to action: "double" in Z2M payload)
-  - platform: device
-    domain: mqtt
-    device_id: !input 'remote_device'
-    type: action
-    subtype: double
-    id: 'double'
-
-  # Trigger for Long Press (Subtype 'long' corresponds to action: "long" in Z2M payload)
-  - platform: device
-    domain: mqtt
-    device_id: !input 'remote_device'
-    type: action
-    subtype: long
-    id: 'long'
+  # Trigger when the state of the action entity changes to 'single', 'double', or 'long'
+  - platform: state
+    entity_id: !input 'remote_entity'
 
 action:
-  # Choose the action sequence based on which trigger fired
+  - variables:
+      action_state: "{{ trigger.to_state.state }}"
   - choose:
+      # Action: single
       - conditions:
-          - condition: trigger
-            id: 'single'
+          - condition: template
+            value_template: "{{ action_state == 'single' }}"
         sequence: !input 'single_press_action'
+      # Action: double
       - conditions:
-          - condition: trigger
-            id: 'double'
+          - condition: template
+            value_template: "{{ action_state == 'double' }}"
         sequence: !input 'double_press_action'
+      # Action: long
       - conditions:
-          - condition: trigger
-            id: 'long'
+          - condition: template
+            value_template: "{{ action_state == 'long' }}"
         sequence: !input 'long_press_action'
